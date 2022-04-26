@@ -5,13 +5,13 @@ The GoCSV package aims to provide easy serialization and deserialization functio
 
 API and techniques inspired from https://godoc.org/gopkg.in/mgo.v2
 
-[![GoDoc](https://godoc.org/github.com/gocarina/gocsv?status.png)](https://godoc.org/github.com/gocarina/gocsv)
-[![Build Status](https://travis-ci.org/gocarina/gocsv.svg?branch=master)](https://travis-ci.org/gocarina/gocsv)
+[![GoDoc](https://godoc.org/github.com/acls/gocsv?status.png)](https://godoc.org/github.com/acls/gocsv)
+[![Build Status](https://travis-ci.org/acls/gocsv.svg?branch=master)](https://travis-ci.org/acls/gocsv)
 
 Installation
 =====
 
-```go get -u github.com/gocarina/gocsv```
+```go get -u github.com/acls/gocsv```
 
 Full example
 =====
@@ -38,7 +38,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/gocarina/gocsv"
+	"github.com/acls/gocsv"
 )
 
 type Client struct { // Our example struct, you can use "-" to ignore a field
@@ -97,7 +97,7 @@ func (date *DateTime) MarshalCSV() (string, error) {
 	return date.Time.Format("20060201"), nil
 }
 
-// You could also use the standard Stringer interface 
+// You could also use the standard Stringer interface
 func (date *DateTime) String() (string) {
 	return date.String() // Redundant, just for example
 }
@@ -123,24 +123,24 @@ Customizable CSV Reader / Writer
 
 func main() {
         ...
-	
+
         gocsv.SetCSVReader(func(in io.Reader) gocsv.CSVReader {
             r := csv.NewReader(in)
             r.Comma = '|'
             return r // Allows use pipe as delimiter
-        })	
-	
+        })
+
         ...
-	
+
         gocsv.SetCSVReader(func(in io.Reader) gocsv.CSVReader {
             r := csv.NewReader(in)
             r.LazyQuotes = true
             r.Comma = '.'
             return r // Allows use dot as delimiter and use quotes in CSV
         })
-	
+
         ...
-	
+
         gocsv.SetCSVReader(func(in io.Reader) gocsv.CSVReader {
             //return csv.NewReader(in)
             return gocsv.LazyCSVReader(in) // Allows use of quotes in CSV
