@@ -224,6 +224,34 @@ func Test_readTo_slice(t *testing.T) {
 	}
 }
 
+func Test_readTo_slice_structs(t *testing.T) {
+	b := bytes.NewBufferString(`s_0_string,slice_0_f,slice_1_s,s_1_float,a_0_s,array_0_float,a_1_s,array_1_float,ints_0,ints_1,ints_2
+s1,1.1,s2,2.2,s3,3.3,s4,4.4,1,2,3`)
+	d := newSimpleDecoderFromReader(b)
+
+	var samples []SliceStructSample
+	err := readTo(d, &samples)
+	if err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	expected := SliceStructSample{
+		Slice: []SliceStruct{
+			{String: "s1", Float: 1.1},
+			{String: "s2", Float: 2.2},
+		},
+		SimpleSlice: []int{1, 2, 3},
+		Array: [2]SliceStruct{
+			{String: "s3", Float: 3.3},
+			{String: "s4", Float: 4.4},
+		},
+	}
+
+	if !reflect.DeepEqual(expected, samples[0]) {
+		t.Fatalf("expected \n  sample: %v\n     got: %v", expected, samples[0])
+	}
+}
+
 func Test_readTo_embed_marshal(t *testing.T) {
 	b := bytes.NewBufferString(`foo
 bar`)
