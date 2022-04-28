@@ -23,16 +23,57 @@ func assertLine(t *testing.T, expected, actual []string) {
 	}
 }
 
+func TestEncoder(t *testing.T) {
+	type sample struct {
+		FieldA string `csv:"field_a"`
+		FieldB string `csv:"field_b"`
+	}
+
+	b := bytes.Buffer{}
+	e, err := NewEncoder(csv.NewWriter(&b), sample{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.WriteHeader(); err != nil {
+		t.Fatal(err)
+	}
+
+	samples := []sample{
+		{"a", "b"},
+		{"c", "d"},
+	}
+	for _, sample := range samples {
+		if err := e.Encode(sample); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Can only encode the initialized type
+	if err := e.Encode([]sample{{"e", "f"}}); err == nil {
+		t.Fatal("Should fail to encode []sample")
+	}
+
+	lines, err := csv.NewReader(&b).ReadAll()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(lines) != 3 {
+		t.Fatalf("expected 3 lines, got %d", len(lines))
+	}
+	assertLine(t, []string{"field_a", "field_b"}, lines[0])
+	assertLine(t, []string{"a", "b"}, lines[1])
+	assertLine(t, []string{"c", "d"}, lines[2])
+}
+
 func Test_writeTo(t *testing.T) {
 	b := bytes.Buffer{}
-	e := &encoder{out: &b}
 	blah := 2
 	sptr := "*string"
 	s := []Sample{
 		{Foo: "f", Bar: 1, Baz: "baz", Frop: 0.1, Blah: &blah, SPtr: &sptr},
 		{Foo: "e", Bar: 3, Baz: "b", Frop: 6.0 / 13, Blah: nil, SPtr: nil},
 	}
-	if err := writeTo(NewSafeCSVWriter(csv.NewWriter(e.out)), s, false); err != nil {
+	if err := writeTo(NewSafeCSVWriter(csv.NewWriter(&b)), s, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -50,12 +91,11 @@ func Test_writeTo(t *testing.T) {
 
 func Test_writeTo_Time(t *testing.T) {
 	b := bytes.Buffer{}
-	e := &encoder{out: &b}
 	d := time.Unix(60, 0)
 	s := []DateTime{
 		{Foo: d},
 	}
-	if err := writeTo(NewSafeCSVWriter(csv.NewWriter(e.out)), s, true); err != nil {
+	if err := writeTo(NewSafeCSVWriter(csv.NewWriter(&b)), s, true); err != nil {
 		t.Fatal(err)
 	}
 
@@ -79,14 +119,13 @@ func Test_writeTo_Time(t *testing.T) {
 
 func Test_writeTo_NoHeaders(t *testing.T) {
 	b := bytes.Buffer{}
-	e := &encoder{out: &b}
 	blah := 2
 	sptr := "*string"
 	s := []Sample{
 		{Foo: "f", Bar: 1, Baz: "baz", Frop: 0.1, Blah: &blah, SPtr: &sptr},
 		{Foo: "e", Bar: 3, Baz: "b", Frop: 6.0 / 13, Blah: nil, SPtr: nil},
 	}
-	if err := writeTo(NewSafeCSVWriter(csv.NewWriter(e.out)), s, true); err != nil {
+	if err := writeTo(NewSafeCSVWriter(csv.NewWriter(&b)), s, true); err != nil {
 		t.Fatal(err)
 	}
 
@@ -103,12 +142,11 @@ func Test_writeTo_NoHeaders(t *testing.T) {
 
 func Test_writeTo_multipleTags(t *testing.T) {
 	b := bytes.Buffer{}
-	e := &encoder{out: &b}
 	s := []MultiTagSample{
 		{Foo: "abc", Bar: 123},
 		{Foo: "def", Bar: 234},
 	}
-	if err := writeTo(NewSafeCSVWriter(csv.NewWriter(e.out)), s, false); err != nil {
+	if err := writeTo(NewSafeCSVWriter(csv.NewWriter(&b)), s, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -127,7 +165,6 @@ func Test_writeTo_multipleTags(t *testing.T) {
 
 func Test_writeTo_slice_structs(t *testing.T) {
 	b := bytes.Buffer{}
-	e := &encoder{out: &b}
 	s := []SliceStructSample{
 		{
 			Slice: []SliceStruct{
@@ -142,7 +179,7 @@ func Test_writeTo_slice_structs(t *testing.T) {
 			},
 		},
 	}
-	if err := writeTo(NewSafeCSVWriter(csv.NewWriter(e.out)), s, false); err != nil {
+	if err := writeTo(NewSafeCSVWriter(csv.NewWriter(&b)), s, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -159,7 +196,6 @@ func Test_writeTo_slice_structs(t *testing.T) {
 
 func Test_writeTo_embed(t *testing.T) {
 	b := bytes.Buffer{}
-	e := &encoder{out: &b}
 	blah := 2
 	sptr := "*string"
 	s := []EmbedSample{
@@ -171,7 +207,7 @@ func Test_writeTo_embed(t *testing.T) {
 			Grault: math.Pi,
 		},
 	}
-	if err := writeTo(NewSafeCSVWriter(csv.NewWriter(e.out)), s, false); err != nil {
+	if err := writeTo(NewSafeCSVWriter(csv.NewWriter(&b)), s, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -188,7 +224,6 @@ func Test_writeTo_embed(t *testing.T) {
 
 func Test_writeTo_embedptr(t *testing.T) {
 	b := bytes.Buffer{}
-	e := &encoder{out: &b}
 	blah := 2
 	sptr := "*string"
 	s := []EmbedPtrSample{
@@ -200,7 +235,7 @@ func Test_writeTo_embedptr(t *testing.T) {
 			Grault: math.Pi,
 		},
 	}
-	if err := writeTo(NewSafeCSVWriter(csv.NewWriter(e.out)), s, false); err != nil {
+	if err := writeTo(NewSafeCSVWriter(csv.NewWriter(&b)), s, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -217,11 +252,10 @@ func Test_writeTo_embedptr(t *testing.T) {
 
 func Test_writeTo_embedptr_nil(t *testing.T) {
 	b := bytes.Buffer{}
-	e := &encoder{out: &b}
 	s := []EmbedPtrSample{
 		{},
 	}
-	if err := writeTo(NewSafeCSVWriter(csv.NewWriter(e.out)), s, false); err != nil {
+	if err := writeTo(NewSafeCSVWriter(csv.NewWriter(&b)), s, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -238,13 +272,12 @@ func Test_writeTo_embedptr_nil(t *testing.T) {
 
 func Test_writeTo_embedmarshal(t *testing.T) {
 	b := bytes.Buffer{}
-	e := &encoder{out: &b}
 	s := []EmbedMarshal{
 		{
 			Foo: &MarshalSample{Dummy: "bar"},
 		},
 	}
-	if err := writeTo(NewSafeCSVWriter(csv.NewWriter(e.out)), s, false); err != nil {
+	if err := writeTo(NewSafeCSVWriter(csv.NewWriter(&b)), s, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -262,7 +295,6 @@ func Test_writeTo_embedmarshal(t *testing.T) {
 
 func Test_writeTo_complex_embed(t *testing.T) {
 	b := bytes.Buffer{}
-	e := &encoder{out: &b}
 	sptr := "*string"
 	sfs := []SkipFieldSample{
 		{
@@ -284,7 +316,7 @@ func Test_writeTo_complex_embed(t *testing.T) {
 			Corge:      "hhh",
 		},
 	}
-	if err := writeTo(NewSafeCSVWriter(csv.NewWriter(e.out)), sfs, false); err != nil {
+	if err := writeTo(NewSafeCSVWriter(csv.NewWriter(&b)), sfs, false); err != nil {
 		t.Fatal(err)
 	}
 	lines, err := csv.NewReader(&b).ReadAll()
@@ -300,7 +332,6 @@ func Test_writeTo_complex_embed(t *testing.T) {
 
 func Test_writeTo_complex_inner_struct_embed(t *testing.T) {
 	b := bytes.Buffer{}
-	e := &encoder{out: &b}
 	sfs := []Level0Struct{
 		{
 			Level0Field: level1Struct{
@@ -326,7 +357,7 @@ func Test_writeTo_complex_inner_struct_embed(t *testing.T) {
 		},
 	}
 
-	if err := writeTo(NewSafeCSVWriter(csv.NewWriter(e.out)), sfs, true); err != nil {
+	if err := writeTo(NewSafeCSVWriter(csv.NewWriter(&b)), sfs, true); err != nil {
 		t.Fatal(err)
 	}
 	lines, err := csv.NewReader(&b).ReadAll()
@@ -339,7 +370,6 @@ func Test_writeTo_complex_inner_struct_embed(t *testing.T) {
 
 func Test_writeToChan(t *testing.T) {
 	b := bytes.Buffer{}
-	e := &encoder{out: &b}
 	c := make(chan interface{})
 	sptr := "*string"
 	go func() {
@@ -349,7 +379,7 @@ func Test_writeToChan(t *testing.T) {
 		}
 		close(c)
 	}()
-	if err := MarshalChan(c, NewSafeCSVWriter(csv.NewWriter(e.out))); err != nil {
+	if err := MarshalChan(c, NewSafeCSVWriter(csv.NewWriter(&b))); err != nil {
 		t.Fatal(err)
 	}
 	lines, err := csv.NewReader(&b).ReadAll()
@@ -452,7 +482,6 @@ func Benchmark_MarshalCSVWithoutHeaders(b *testing.B) {
 
 func Test_writeTo_nested_struct(t *testing.T) {
 	b := bytes.Buffer{}
-	e := &encoder{out: &b}
 	s := []NestedSample{
 		{
 			Inner1: InnerStruct{
@@ -477,7 +506,7 @@ func Test_writeTo_nested_struct(t *testing.T) {
 			}},
 		},
 	}
-	if err := writeTo(NewSafeCSVWriter(csv.NewWriter(e.out)), s, false); err != nil {
+	if err := writeTo(NewSafeCSVWriter(csv.NewWriter(&b)), s, false); err != nil {
 		t.Fatal(err)
 	}
 

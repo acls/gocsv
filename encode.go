@@ -2,16 +2,54 @@ package gocsv
 
 import (
 	"fmt"
-	"io"
 	"reflect"
 )
 
-type encoder struct {
-	out io.Writer
+type Encoder struct {
+	writer     CSVWriter
+	inType     reflect.Type
+	wasPointer bool
+	structInfo *structInfo
+	row        []string
 }
 
-func newEncoder(out io.Writer) *encoder {
-	return &encoder{out}
+func NewEncoder(writer CSVWriter, in interface{}) (*Encoder, error) {
+	_, inType := getConcreteReflectValueAndType(in) // Get the concrete type (not pointer)
+	if err := ensureInInnerType(inType); err != nil {
+		return nil, err
+	}
+	structInfo := getStructInfo(inType) // Get the struct info to get CSV annotations
+	return &Encoder{
+		writer:     writer,
+		inType:     inType,
+		wasPointer: inType.Kind() == reflect.Ptr,
+		structInfo: structInfo,
+		row:        make([]string, len(structInfo.Fields)),
+	}, nil
+}
+
+func (e *Encoder) WriteHeader() error {
+	for i, fieldInfo := range e.structInfo.Fields { // Used to write the header (first line) in CSV
+		e.row[i] = fieldInfo.getFirstKey()
+	}
+	return e.writer.Write(e.row)
+}
+func (e *Encoder) Encode(in interface{}) error {
+	val, inType := getConcreteReflectValueAndType(in) // Get the concrete type (not pointer)
+	if e.inType != inType {
+		return fmt.Errorf("Encoder was initialized to encode %v, but received %v", e.inType, inType)
+	}
+	for j, fieldInfo := range e.structInfo.Fields {
+		e.row[j] = ""
+		inInnerFieldValue, err := getInnerField(val, e.wasPointer, fieldInfo.IndexChain) // Get the correct field header <-> position
+		if err != nil {
+			return err
+		}
+		e.row[j] = inInnerFieldValue
+	}
+	e.writer.Write(e.row)
+	e.writer.Flush()
+	return e.writer.Error()
 }
 
 func writeFromChan(writer CSVWriter, c <-chan interface{}, omitHeaders bool) error {
